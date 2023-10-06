@@ -1,12 +1,11 @@
-#include "fix_cpu.cuh"
-#include "image.hh"
+#include "fix_gpu.cuh"
 
 #include <array>
 #include <numeric>
 #include <algorithm>
 #include <cmath>
 
-void fix_image_cpu(Image& to_fix)
+void fix_image_gpu(Image& to_fix)
 {
     const int image_size = to_fix.width * to_fix.height;
 
@@ -75,7 +74,7 @@ void fix_image_cpu(Image& to_fix)
     );
 }
 
-int main_cpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& pipeline)
+int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& pipeline)
 {
     // -- Main loop containing image retring from pipeline and fixing
 
@@ -97,7 +96,7 @@ int main_cpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         // You must get the image from the pipeline as they arrive and launch computations right away
         // There are still ways to speeds this process of course (wait for last class)
         images[i] = pipeline.get_image(i);
-        fix_image_cpu(images[i]);
+        fix_image_gpu(images[i]);
     }
 
     std::cout << "Done with compute, starting stats" << std::endl;
@@ -154,5 +153,5 @@ int main_cpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     for (int i = 0; i < nb_images; ++i)
         free(images[i].buffer);
 
-    return 0;   
+    return 0;
 }
