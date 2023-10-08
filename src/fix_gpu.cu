@@ -142,22 +142,6 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
 
     std::cout << "Done with compute, starting stats" << std::endl;
 
-    #pragma omp parallel for
-    for (int i = 0; i < nb_images; ++i)
-    {
-        auto& image = images[i];
-        const int image_size = image.width * image.height;
-        const int buffer_size = image.size();
-
-        DeviceArray<int> d_image(buffer_size);
-        d_image.copyFromHost(images[i].buffer, buffer_size);
-        d_image.setTo(image_size, buffer_size - image_size, 0);
-
-        images[i].to_sort.total = compute_reduce(d_image, image_size);
-
-        d_image.copyToHost(images[i].buffer, buffer_size);
-    }
-
     // - All totals are known, sort images accordingly (OPTIONAL)
     // Moving the actual images is too expensive, sort image indices instead
     // Copying to an id array and sort it instead
