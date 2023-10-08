@@ -1,77 +1,98 @@
 #include "fix_gpu.cuh"
 
-#include <array>
-#include <numeric>
-#include <algorithm>
-#include <cmath>
+void fix_image_gpu(DeviceArray<int>& d_image, const int image_size, const int buffer_size)
+{    
+    int block_size = 1024;
+    int grid_size = (buffer_size + block_size - 1) / block_size;
 
-void fix_image_gpu(Image& to_fix)
-{
-    const int image_size = to_fix.width * to_fix.height;
+    dim3 dimBlock(block_size);
+    dim3 dimGrid(grid_size);
 
     // #1 Compact
-
     // Build predicate vector
+    DeviceArray<int> d_predicate(buffer_size, 0);
 
-    std::vector<int> predicate(to_fix.size(), 0);
-
-    constexpr int garbage_val = -27;
-    for (int i = 0; i < to_fix.size(); ++i)
-        if (to_fix.buffer[i] != garbage_val)
-            predicate[i] = 1;
+    build_predicate<<<dimGrid, dimBlock>>>(d_image.data_, d_predicate.data_, buffer_size);
+    cudaXDeviceSynchronize();
 
     // Compute the exclusive sum of the predicate
+    DeviceArray<int> d_blockStates(grid_size, 0);
+    DeviceArray<int> d_blocksP(grid_size, 0);
+    DeviceArray<int> d_blocksA(grid_size, 0);
+    DeviceArray<int> d_globalCounter(1, 0);
 
-    std::exclusive_scan(predicate.begin(), predicate.end(), predicate.begin(), 0);
+    decoupled_lookback_scan<<<dimGrid, dimBlock, sizeof(int)>>>(d_predicate.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, buffer_size);
+    cudaXDeviceSynchronize();
+    cudaCheckError();
+
+    DeviceArray<int> predicate_shifted(buffer_size, 0);
+
+    shift_buffer<<<dimGrid, dimBlock>>>(d_predicate.data_, predicate_shifted.data_, buffer_size);
+    cudaXDeviceSynchronize();
+    cudaCheckError();
 
     // Scatter to the corresponding addresses
-
-    for (std::size_t i = 0; i < predicate.size(); ++i)
-        if (to_fix.buffer[i] != garbage_val)
-            to_fix.buffer[predicate[i]] = to_fix.buffer[i];
-
+    scatter_adresses<<<dimGrid, dimBlock>>>(d_image.data_, predicate_shifted.data_, buffer_size);
+    cudaXDeviceSynchronize();
 
     // #2 Apply map to fix pixels
-
-    for (int i = 0; i < image_size; ++i)
-    {
-        if (i % 4 == 0)
-            to_fix.buffer[i] += 1;
-        else if (i % 4 == 1)
-            to_fix.buffer[i] -= 5;
-        else if (i % 4 == 2)
-            to_fix.buffer[i] += 3;
-        else if (i % 4 == 3)
-            to_fix.buffer[i] -= 8;
-    }
+    apply_map<<<dimGrid, dimBlock>>>(d_image.data_, image_size);
+    cudaXDeviceSynchronize();
 
     // #3 Histogram equalization
-
     // Histogram
+    DeviceArray<int> d_histo(256, 0);
 
-    std::array<int, 256> histo;
-    histo.fill(0);
-    for (int i = 0; i < image_size; ++i)
-        ++histo[to_fix.buffer[i]];
+    compute_histogram<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, image_size);
+    cudaXDeviceSynchronize();
 
     // Compute the inclusive sum scan of the histogram
+    d_blockStates.setTo(grid_size, 0);
+    d_blocksP.setTo(grid_size, 0);
+    d_blocksA.setTo(grid_size, 0);
+    d_globalCounter.setTo(1, 0);
 
-    std::inclusive_scan(histo.begin(), histo.end(), histo.begin());
+    decoupled_lookback_scan<<<1, 256, sizeof(int)>>>(d_histo.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, 256);
+    cudaXDeviceSynchronize();
 
     // Find the first non-zero value in the cumulative histogram
+    DeviceArray<int> d_predicate_zeros(256, 0);
 
-    auto first_none_zero = std::find_if(histo.begin(), histo.end(), [](auto v) { return v != 0; });
+    create_predicate_zeros<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, 256);
+    cudaXDeviceSynchronize();
 
-    const int cdf_min = *first_none_zero;
+    d_blockStates.setTo(grid_size, 0);
+    d_blocksP.setTo(grid_size, 0);
+    d_blocksA.setTo(grid_size, 0);
+    d_globalCounter.setTo(1, 0);
+
+    decoupled_lookback_scan<<<1, 256, sizeof(int)>>>(d_predicate_zeros.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, 256);
+    cudaXDeviceSynchronize();
+
+    DeviceArray<int> d_firstNonZero(1, 0);
+
+    find_first_non_zero<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, d_firstNonZero.data_, 256);
+    cudaXDeviceSynchronize();
 
     // Apply the map transformation of the histogram equalization
+    apply_map_transformation<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, d_firstNonZero.data_, image_size);
+    cudaXDeviceSynchronize();
+}
 
-    std::transform(to_fix.buffer, to_fix.buffer + image_size, to_fix.buffer,
-        [image_size, cdf_min, &histo](int pixel)
-            {
-                return std::roundf(((histo[pixel] - cdf_min) / static_cast<float>(image_size - cdf_min)) * 255.0f);
-            }
-    );
+uint64_t compute_reduce(DeviceArray<int> &d_buffer, int image_size)
+{
+    int block_size = 1024;
+    int num_blocks = (image_size + block_size - 1) / block_size;
+
+    DeviceArray<int> d_total(1, 0);
+
+    kernel_reduce<<<num_blocks, block_size, sizeof(int) * block_size>>>(d_buffer.data_, d_total.data_, image_size);
+    cudaXDeviceSynchronize();
+
+    int total = 0;
+    d_total.copyToHost(&total, 1);
+
+    return total;
 }
 
 int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& pipeline)
@@ -96,24 +117,45 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         // You must get the image from the pipeline as they arrive and launch computations right away
         // There are still ways to speeds this process of course (wait for last class)
         images[i] = pipeline.get_image(i);
-        fix_image_gpu(images[i]);
+        const int image_size = (int)images[i].width * (int)images[i].height;
+        const int buffer_size = images[i].size();
+
+        DeviceArray<int> d_image(buffer_size, 0);
+        d_image.copyFromHost(images[i].buffer, buffer_size);
+
+        fix_image_gpu(d_image, image_size, buffer_size);
+
+        d_image.copyToHost(images[i].buffer, buffer_size);
+
+        // -- All images are now fixed : compute stats (total then sort)
+
+        // - First compute the total of each image
+
+        // TODO : make it GPU compatible (aka faster)
+        // You can use multiple CPU threads for your GPU version using openmp or not
+        // Up to you :)
+        
+        d_image.setTo(image_size, buffer_size - image_size, 0);
+
+        images[i].to_sort.total = compute_reduce(d_image, image_size);
     }
 
     std::cout << "Done with compute, starting stats" << std::endl;
 
-    // -- All images are now fixed : compute stats (total then sort)
-
-    // - First compute the total of each image
-
-    // TODO : make it GPU compatible (aka faster)
-    // You can use multiple CPU threads for your GPU version using openmp or not
-    // Up to you :)
     #pragma omp parallel for
     for (int i = 0; i < nb_images; ++i)
     {
         auto& image = images[i];
         const int image_size = image.width * image.height;
-        image.to_sort.total = std::reduce(image.buffer, image.buffer + image_size, 0);
+        const int buffer_size = image.size();
+
+        DeviceArray<int> d_image(buffer_size);
+        d_image.copyFromHost(images[i].buffer, buffer_size);
+        d_image.setTo(image_size, buffer_size - image_size, 0);
+
+        images[i].to_sort.total = compute_reduce(d_image, image_size);
+
+        d_image.copyToHost(images[i].buffer, buffer_size);
     }
 
     // - All totals are known, sort images accordingly (OPTIONAL)
@@ -145,6 +187,8 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         std::string str = oss.str();
         images[i].write(str);
     }
+
+    pipeline.set_images(images);
 
     std::cout << "Done, the internet is safe now :)" << std::endl;
 

@@ -40,5 +40,10 @@ struct Pipeline
         return std::move(images[i]);
     }
 
+    void set_images(const std::vector<Image>& new_images)
+    {
+        images = std::move(new_images);
+    }
+
     std::vector<Image> images;
 };

@@ -114,6 +114,7 @@ int main_cpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     {
         auto& image = images[i];
         const int image_size = image.width * image.height;
+
         image.to_sort.total = std::reduce(image.buffer, image.buffer + image_size, 0);
     }
 
@@ -146,6 +147,8 @@ int main_cpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         std::string str = oss.str();
         images[i].write(str);
     }
+
+    pipeline.set_images(images);
 
     std::cout << "Done, the internet is safe now :)" << std::endl;
 

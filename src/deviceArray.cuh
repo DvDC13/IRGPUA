@@ -30,11 +30,6 @@ public:
         allocate(size);
     }
 
-    void setToZero(int size)
-    {
-        setTo(size, 0);
-    }
-
     void copyFromHost(const T* src, int size)
     {
         cudaXMemcpy(data_, src, size * sizeof(T), cudaMemcpyHostToDevice);
@@ -53,6 +48,11 @@ public:
     void setTo(int size, int value)
     {
         cudaXMemset(data_, value, size * sizeof(T));
+    }
+
+    void setTo(int offset, int size, int value)
+    {
+        cudaXMemset(data_ + offset, value, size * sizeof(T));
     }
 
     void free()

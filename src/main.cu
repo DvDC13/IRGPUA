@@ -11,6 +11,45 @@
 #include <filesystem>
 #include <numeric>
 
+void compare_versions(Pipeline& pipeline_cpu, Pipeline& pipeline_gpu)
+{
+    // std::cout << std::endl;
+    // for (int i = 0; i < pipeline_cpu.images.size(); ++i)
+    // {
+    //     std::cout << "Index: " << i << std::endl;
+    //     std::cout << "CPU Buffer size: " << pipeline_cpu.images[i].size() << " GPU Buffer size: " << pipeline_gpu.images[i].size() << std::endl;
+    //     std::cout << "CPU Total: " << pipeline_cpu.images[i].to_sort.total << " GPU Total: " << pipeline_gpu.images[i].to_sort.total << std::endl;
+    //     std::cout << std::endl;
+    // }
+
+    // -- Compare results
+    for (long unsigned int i = 0; i < pipeline_cpu.images.size(); ++i)
+    {
+        auto& cpu_images = pipeline_cpu.images;
+        auto& gpu_images = pipeline_gpu.images;
+
+        if (cpu_images[i].size() != gpu_images[i].size())
+        {
+            std::cout << "Index: " << i << std::endl;
+            std::cout << "Buffer size CPU: " << cpu_images[i].size() << std::endl;
+            std::cout << "Buffer size GPU: " << gpu_images[i].size() << std::endl;
+            std::cout << "Error: images are not equal" << std::endl;
+            return;
+        }
+
+        if (cpu_images[i].to_sort.total != gpu_images[i].to_sort.total)
+        {
+            std::cout << "Index: " << i << std::endl;
+            std::cout << "Total CPU: " << cpu_images[i].to_sort.total << std::endl;
+            std::cout << "Total GPU: " << gpu_images[i].to_sort.total << std::endl;
+            std::cout << "Error: images are not equal" << std::endl;
+            return;
+        }
+    }
+
+    std::cout << "Success: images are equal" << std::endl;
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 {
     // -- Parse arguments
@@ -69,6 +108,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
         // -- Print results
         std::cout << "CPU time: " << duration_cpu.count() << " ms" << std::endl;
         std::cout << "GPU time: " << duration_gpu.count() << " ms" << std::endl;
+
+        // -- Compare results
+        std::cout << "Comparing results..." << std::endl;
+        compare_versions(cpu_pipeline, gpu_pipeline);
     }
 
     return EXIT_SUCCESS;
