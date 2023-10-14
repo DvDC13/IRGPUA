@@ -2,7 +2,7 @@
 
 #include "error.cuh"
 
-template <typename T>
+
 class DeviceArray
 {
 public:
@@ -30,29 +30,29 @@ public:
         allocate(size);
     }
 
-    void copyFromHost(const T* src, int size)
+    void copyFromHost(const int* src, int size)
     {
-        cudaXMemcpy(data_, src, size * sizeof(T), cudaMemcpyHostToDevice);
+        cudaXMemcpy(data_, src, size * sizeof(int), cudaMemcpyHostToDevice);
     }
 
-    void copyToHost(T* dst, int size) const
+    void copyToHost(int* dst, int size) const
     {
-        cudaXMemcpy(dst, data_, size * sizeof(T), cudaMemcpyDeviceToHost);
+        cudaXMemcpy(dst, data_, size * sizeof(int), cudaMemcpyDeviceToHost);
     }
 
     void allocate(int size)
     {
-        cudaXMalloc((void**)&data_, size * sizeof(T));
+        cudaXMalloc((void**)&data_, size * sizeof(int));
     }
 
     void setTo(int size, int value)
     {
-        cudaXMemset(data_, value, size * sizeof(T));
+        cudaXMemset(data_, value, size * sizeof(int));
     }
 
     void setTo(int offset, int size, int value)
     {
-        cudaXMemset(data_ + offset, value, size * sizeof(T));
+        cudaXMemset(data_ + offset, value, size * sizeof(int));
     }
 
     void free()
@@ -64,5 +64,5 @@ public:
         }
     }
 
-    T* data_;
+    int* data_;
 };

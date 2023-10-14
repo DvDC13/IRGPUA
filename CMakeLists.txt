@@ -8,6 +8,7 @@ enable_language(CUDA)
 find_package(OpenMP REQUIRED)
 
 include_directories(src)
+include_directories(src/kernels/include)
 
 add_compile_options(-W -Wall -Wextra -fconcepts)
 
@@ -23,7 +24,19 @@ set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 set(CMAKE_CUDA_FLAGS "-Xcompiler -fopenmp --extended-lambda --generate-line-info --expt-relaxed-constexpr ${CMAKE_CUDA_FLAGS}")
 set(CMAKE_CUDA_FLAGS "--ptxas-options=-v --generate-line-info")
 
-add_executable(main src/main.cu src/fix_cpu.cu src/fix_gpu.cu src/parse.cu src/kernels.cu)
+add_executable(main src/main.cu 
+                    src/fix_cpu.cu 
+                    src/fix_gpu.cu 
+                    src/parse.cu
+                    src/kernels/src/reduce.cu
+                    src/kernels/src/scan.cu
+                    src/kernels/src/shift.cu
+                    src/kernels/src/histogram.cu
+                    src/kernels/src/apply_map.cu
+                    src/kernels/src/build_predicate.cu
+                    src/kernels/src/scatter_adresses.cu
+                    src/kernels/src/find_first_non_zero.cu
+                    src/kernels/src/apply_map_transformation.cu)
 
 set_target_properties(main PROPERTIES CUDA_ARCHITECTURES "75")
 

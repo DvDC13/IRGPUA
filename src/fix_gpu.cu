@@ -1,6 +1,6 @@
 #include "fix_gpu.cuh"
 
-void fix_image_gpu(DeviceArray<int>& d_image, const int image_size, const int buffer_size)
+void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_size)
 {    
     int block_size = 1024;
     int grid_size = (buffer_size + block_size - 1) / block_size;
@@ -10,22 +10,22 @@ void fix_image_gpu(DeviceArray<int>& d_image, const int image_size, const int bu
 
     // #1 Compact
     // Build predicate vector
-    DeviceArray<int> d_predicate(buffer_size, 0);
+    DeviceArray d_predicate(buffer_size, 0);
 
     build_predicate<<<dimGrid, dimBlock>>>(d_image.data_, d_predicate.data_, buffer_size);
     cudaXDeviceSynchronize();
 
     // Compute the exclusive sum of the predicate
-    DeviceArray<int> d_blockStates(grid_size, 0);
-    DeviceArray<int> d_blocksP(grid_size, 0);
-    DeviceArray<int> d_blocksA(grid_size, 0);
-    DeviceArray<int> d_globalCounter(1, 0);
+    DeviceArray d_blockStates(grid_size, 0);
+    DeviceArray d_blocksP(grid_size, 0);
+    DeviceArray d_blocksA(grid_size, 0);
+    DeviceArray d_globalCounter(1, 0);
 
     decoupled_lookback_scan<<<dimGrid, dimBlock, sizeof(int)>>>(d_predicate.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, buffer_size);
     cudaXDeviceSynchronize();
     cudaCheckError();
 
-    DeviceArray<int> predicate_shifted(buffer_size, 0);
+    DeviceArray predicate_shifted(buffer_size, 0);
 
     shift_buffer<<<dimGrid, dimBlock>>>(d_predicate.data_, predicate_shifted.data_, buffer_size);
     cudaXDeviceSynchronize();
@@ -41,7 +41,7 @@ void fix_image_gpu(DeviceArray<int>& d_image, const int image_size, const int bu
 
     // #3 Histogram equalization
     // Histogram
-    DeviceArray<int> d_histo(256, 0);
+    DeviceArray d_histo(256, 0);
 
     compute_histogram<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, image_size);
     cudaXDeviceSynchronize();
@@ -56,9 +56,9 @@ void fix_image_gpu(DeviceArray<int>& d_image, const int image_size, const int bu
     cudaXDeviceSynchronize();
 
     // Find the first non-zero value in the cumulative histogram
-    DeviceArray<int> d_predicate_zeros(256, 0);
+    DeviceArray d_predicate_zeros(256, 0);
 
-    create_predicate_zeros<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, 256);
+    build_predicate_zeros<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, 256);
     cudaXDeviceSynchronize();
 
     d_blockStates.setTo(grid_size, 0);
@@ -69,7 +69,7 @@ void fix_image_gpu(DeviceArray<int>& d_image, const int image_size, const int bu
     decoupled_lookback_scan<<<1, 256, sizeof(int)>>>(d_predicate_zeros.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, 256);
     cudaXDeviceSynchronize();
 
-    DeviceArray<int> d_firstNonZero(1, 0);
+    DeviceArray d_firstNonZero(1, 0);
 
     find_first_non_zero<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, d_firstNonZero.data_, 256);
     cudaXDeviceSynchronize();
@@ -79,14 +79,14 @@ void fix_image_gpu(DeviceArray<int>& d_image, const int image_size, const int bu
     cudaXDeviceSynchronize();
 }
 
-uint64_t compute_reduce(DeviceArray<int> &d_buffer, int image_size)
+uint64_t compute_reduce(DeviceArray &d_buffer, int image_size)
 {
     int block_size = 1024;
     int num_blocks = (image_size + block_size - 1) / block_size;
 
-    DeviceArray<int> d_total(1, 0);
+    DeviceArray d_total(1, 0);
 
-    kernel_reduce<<<num_blocks, block_size, sizeof(int) * block_size>>>(d_buffer.data_, d_total.data_, image_size);
+    kernel_reduce_baseline<<<num_blocks, block_size>>>(d_buffer.data_, d_total.data_, image_size);
     cudaXDeviceSynchronize();
 
     int total = 0;
@@ -120,7 +120,7 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         const int image_size = (int)images[i].width * (int)images[i].height;
         const int buffer_size = images[i].size();
 
-        DeviceArray<int> d_image(buffer_size, 0);
+        DeviceArray d_image(buffer_size, 0);
         d_image.copyFromHost(images[i].buffer, buffer_size);
 
         fix_image_gpu(d_image, image_size, buffer_size);
@@ -134,8 +134,6 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         // TODO : make it GPU compatible (aka faster)
         // You can use multiple CPU threads for your GPU version using openmp or not
         // Up to you :)
-        
-        d_image.setTo(image_size, buffer_size - image_size, 0);
 
         images[i].to_sort.total = compute_reduce(d_image, image_size);
     }
