@@ -1,19 +1,35 @@
 #include "build_predicate.cuh"
 
-__global__ void build_predicate(int* buffer, int* result, int size)
+///////////////////////// build_predicate 1 ///////////////////////////
+
+__global__ void build_predicate1(const int* __restrict__ buffer, int* __restrict__ result, int size)
 {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid < size)
+    int gid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (gid < size)
     {
-        result[tid] = buffer[tid] != -27 ? 1 : 0;
+        result[gid] = buffer[gid] != -27 ? 1 : 0;
     }
 }
 
-__global__ void build_predicate_zeros(int* buffer, int* result, int size)
+///////////////////////// build_predicate 2 ///////////////////////////
+
+__global__ void build_predicate2(const int* __restrict__ buffer, int* __restrict__ result, int size)
 {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid < size)
+    int gid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (gid < size)
     {
-        result[tid] = buffer[tid] != 0 ? 1 : 0;
+        constexpr int garbage_value = -27;
+        result[gid] = buffer[gid] != garbage_value;
+    }
+}
+
+///////////////////////// build_predicate_zeros 1 ///////////////////////////
+
+__global__ void build_predicate_zeros1(const int* __restrict__ buffer, int* __restrict__ result, int size)
+{
+    int gid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (gid < size)
+    {
+        result[gid] = buffer[gid] != 0;
     }
 }

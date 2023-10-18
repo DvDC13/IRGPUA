@@ -7,7 +7,8 @@ struct ParsingArgs
     enum Version
     {
         CPU,
-        GPU
+        GPU,
+        THRUST
     };
 
     Version version;

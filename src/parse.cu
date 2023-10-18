@@ -33,6 +33,11 @@ ParsingArgs parse_args(int argc, char** argv)
                     args.version = ParsingArgs::Version::GPU;
                     i++;
                 }
+                else if (i + 1 < argc && std::string(argv[i + 1]) == "thrust")
+                {
+                    args.version = ParsingArgs::Version::THRUST;
+                    i++;
+                }
                 else
                 {
                     std::cerr << "Error: --version must be followed by cpu or gpu" << std::endl;

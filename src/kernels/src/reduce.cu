@@ -108,14 +108,14 @@ __global__ void reduce4(const int* __restrict__ buffer, int* __restrict__ total,
 
 ///////////////////////// reduce 5 ///////////////////////////
 
-__device__ void warp_reduce5(int* shared, int tid)
+__device__ void warp_reduce5(int* shared, int gid)
 {
-    shared[tid] += shared[tid + 32]; __syncwarp();
-    shared[tid] += shared[tid + 16]; __syncwarp();
-    shared[tid] += shared[tid + 8]; __syncwarp();
-    shared[tid] += shared[tid + 4]; __syncwarp();
-    shared[tid] += shared[tid + 2]; __syncwarp();
-    shared[tid] += shared[tid + 1]; __syncwarp();
+    shared[gid] += shared[gid + 32]; __syncwarp();
+    shared[gid] += shared[gid + 16]; __syncwarp();
+    shared[gid] += shared[gid + 8]; __syncwarp();
+    shared[gid] += shared[gid + 4]; __syncwarp();
+    shared[gid] += shared[gid + 2]; __syncwarp();
+    shared[gid] += shared[gid + 1]; __syncwarp();
 }
 
 __global__ void reduce5(const int* __restrict__ buffer, int* __restrict__ total, int size)
@@ -146,14 +146,14 @@ __global__ void reduce5(const int* __restrict__ buffer, int* __restrict__ total,
 ///////////////////////// reduce 6 ///////////////////////////
 
 template <int blockSize>
-__device__ void warp_reduce6(int* shared, int tid)
+__device__ void warp_reduce6(int* shared, int gid)
 {
-    if (blockSize >= 64) shared[tid] += shared[tid + 32]; __syncwarp();
-    if (blockSize >= 32) shared[tid] += shared[tid + 16]; __syncwarp();
-    if (blockSize >= 16) shared[tid] += shared[tid + 8]; __syncwarp();
-    if (blockSize >= 8) shared[tid] += shared[tid + 4]; __syncwarp();
-    if (blockSize >= 4) shared[tid] += shared[tid + 2]; __syncwarp();
-    if (blockSize >= 2) shared[tid] += shared[tid + 1]; __syncwarp();
+    if (blockSize >= 64) shared[gid] += shared[gid + 32]; __syncwarp();
+    if (blockSize >= 32) shared[gid] += shared[gid + 16]; __syncwarp();
+    if (blockSize >= 16) shared[gid] += shared[gid + 8]; __syncwarp();
+    if (blockSize >= 8) shared[gid] += shared[gid + 4]; __syncwarp();
+    if (blockSize >= 4) shared[gid] += shared[gid + 2]; __syncwarp();
+    if (blockSize >= 2) shared[gid] += shared[gid + 1]; __syncwarp();
 }
 
 template <int blockSize>
@@ -182,14 +182,14 @@ __global__ void reduce6(const int* __restrict__ buffer, int* __restrict__ total,
 
 ///////////////////////// reduce 7 ///////////////////////////
 
-template <int blockSize> __device__ void warp_reduce7(int* shared, int tid)
+template <int blockSize> __device__ void warp_reduce7(int* shared, int gid)
 {
-    if (blockSize >= 64) shared[tid] += shared[tid + 32]; __syncwarp();
-    if (blockSize >= 32) shared[tid] += shared[tid + 16]; __syncwarp();
-    if (blockSize >= 16) shared[tid] += shared[tid + 8]; __syncwarp();
-    if (blockSize >= 8) shared[tid] += shared[tid + 4]; __syncwarp();
-    if (blockSize >= 4) shared[tid] += shared[tid + 2]; __syncwarp();
-    if (blockSize >= 2) shared[tid] += shared[tid + 1]; __syncwarp();
+    if (blockSize >= 64) shared[gid] += shared[gid + 32]; __syncwarp();
+    if (blockSize >= 32) shared[gid] += shared[gid + 16]; __syncwarp();
+    if (blockSize >= 16) shared[gid] += shared[gid + 8]; __syncwarp();
+    if (blockSize >= 8) shared[gid] += shared[gid + 4]; __syncwarp();
+    if (blockSize >= 4) shared[gid] += shared[gid + 2]; __syncwarp();
+    if (blockSize >= 2) shared[gid] += shared[gid + 1]; __syncwarp();
 }
 
 template <int blockSize>

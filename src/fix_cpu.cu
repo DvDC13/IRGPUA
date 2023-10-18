@@ -30,8 +30,7 @@ void fix_image_cpu(Image& to_fix)
     for (std::size_t i = 0; i < predicate.size(); ++i)
         if (to_fix.buffer[i] != garbage_val)
             to_fix.buffer[predicate[i]] = to_fix.buffer[i];
-
-
+    
     // #2 Apply map to fix pixels
 
     for (int i = 0; i < image_size; ++i)
@@ -57,7 +56,7 @@ void fix_image_cpu(Image& to_fix)
 
     // Compute the inclusive sum scan of the histogram
 
-    std::inclusive_scan(histo.begin(), histo.end(), histo.begin());
+    std::inclusive_scan(histo.begin(), histo.end(), histo.begin());;
 
     // Find the first non-zero value in the cumulative histogram
 

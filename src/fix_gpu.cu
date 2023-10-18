@@ -12,7 +12,7 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     // Build predicate vector
     DeviceArray d_predicate(buffer_size, 0);
 
-    build_predicate<<<dimGrid, dimBlock>>>(d_image.data_, d_predicate.data_, buffer_size);
+    build_predicate1<<<dimGrid, dimBlock>>>(d_image.data_, d_predicate.data_, buffer_size);
     cudaXDeviceSynchronize();
 
     // Compute the exclusive sum of the predicate
@@ -36,14 +36,14 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     cudaXDeviceSynchronize();
 
     // #2 Apply map to fix pixels
-    apply_map<<<dimGrid, dimBlock>>>(d_image.data_, image_size);
+    apply_map1<<<dimGrid, dimBlock>>>(d_image.data_, image_size);
     cudaXDeviceSynchronize();
 
     // #3 Histogram equalization
     // Histogram
     DeviceArray d_histo(256, 0);
 
-    compute_histogram<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, image_size);
+    compute_histogram1<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, image_size);
     cudaXDeviceSynchronize();
 
     // Compute the inclusive sum scan of the histogram
@@ -58,7 +58,7 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     // Find the first non-zero value in the cumulative histogram
     DeviceArray d_predicate_zeros(256, 0);
 
-    build_predicate_zeros<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, 256);
+    build_predicate_zeros1<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, 256);
     cudaXDeviceSynchronize();
 
     d_blockStates.setTo(grid_size, 0);
@@ -75,11 +75,11 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     cudaXDeviceSynchronize();
 
     // Apply the map transformation of the histogram equalization
-    apply_map_transformation<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, d_firstNonZero.data_, image_size);
+    apply_map_transformation1<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, d_firstNonZero.data_, image_size);
     cudaXDeviceSynchronize();
 }
 
-uint64_t compute_reduce(DeviceArray &d_buffer, int image_size)
+uint64_t compute_reduce_gpu(DeviceArray &d_buffer, int image_size)
 {
     int block_size = 1024;
     int num_blocks = (image_size + block_size - 1) / block_size;
@@ -135,7 +135,7 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         // You can use multiple CPU threads for your GPU version using openmp or not
         // Up to you :)
 
-        images[i].to_sort.total = compute_reduce(d_image, image_size);
+        images[i].to_sort.total = compute_reduce_gpu(d_image, image_size);
     }
 
     std::cout << "Done with compute, starting stats" << std::endl;

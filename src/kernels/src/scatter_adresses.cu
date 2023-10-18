@@ -2,12 +2,12 @@
 
 __global__ void scatter_adresses(int* buffer, int* predicate, int size)
 {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid < size)
+    int gid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (gid < size)
     {
-        if (buffer[tid] != -27)
+        if (buffer[gid] != -27)
         {
-            buffer[predicate[tid]] = buffer[tid];
+            buffer[predicate[gid]] = buffer[gid];
         }
     }
 }

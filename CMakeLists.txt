@@ -26,7 +26,8 @@ set(CMAKE_CUDA_FLAGS "--ptxas-options=-v --generate-line-info")
 
 add_executable(main src/main.cu 
                     src/fix_cpu.cu 
-                    src/fix_gpu.cu 
+                    src/fix_gpu.cu
+                    src/fix_thrust.cu
                     src/parse.cu
                     src/kernels/src/reduce.cu
                     src/kernels/src/scan.cu

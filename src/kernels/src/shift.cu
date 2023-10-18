@@ -2,9 +2,9 @@
 
 __global__ void shift_buffer(int* buffer, int *result, int size)
 {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid < size)
+    int gid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (gid < size)
     {
-        result[tid] = tid == 0 ? 0 : buffer[tid - 1];
+        result[gid] = gid == 0 ? 0 : buffer[gid - 1];
     }
 }
