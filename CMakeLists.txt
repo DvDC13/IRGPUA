@@ -37,7 +37,8 @@ add_executable(main src/main.cu
                     src/kernels/src/build_predicate.cu
                     src/kernels/src/scatter_adresses.cu
                     src/kernels/src/find_first_non_zero.cu
-                    src/kernels/src/apply_map_transformation.cu)
+                    src/kernels/src/apply_map_transformation.cu
+                    src/kernels/src/radix_sort.cu)
 
 set_target_properties(main PROPERTIES CUDA_ARCHITECTURES "75")
 

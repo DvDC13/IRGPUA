@@ -13,6 +13,7 @@
 #include "apply_map.cuh"
 #include "find_first_non_zero.cuh"
 #include "apply_map_transformation.cuh"
+#include "radix_sort.cuh"
 
 void fix_image_gpu(Image& to_fix, const int image_size, const int buffer_size);
 

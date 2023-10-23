@@ -147,16 +147,13 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     // TODO OPTIONAL : for you GPU version you can store it the way you want
     // But just like the CPU version, moving the actual images while sorting will be too slow
     using ToSort = Image::ToSort;
-    std::vector<ToSort> to_sort(nb_images);
-    std::generate(to_sort.begin(), to_sort.end(), [n = 0, images] () mutable
-    {
-        return images[n++].to_sort;
-    });
+    int* to_sort = (int*)malloc(nb_images * sizeof(ToSort));
+
+    for (int i = 0; i < nb_images; ++i)
+        to_sort[i] = images[i].to_sort.total;
 
     // TODO OPTIONAL : make it GPU compatible (aka faster)
-    std::sort(to_sort.begin(), to_sort.end(), [](ToSort a, ToSort b) {
-        return a.total < b.total;
-    });
+    radix_sort_gpu(to_sort, nb_images);
 
     // TODO : Test here that you have the same results
     // You can compare visually and should compare image vectors values and "total" values
@@ -177,7 +174,10 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     // Cleaning
     // TODO : Don't forget to update this if you change allocation style
     for (int i = 0; i < nb_images; ++i)
+    {
         free(images[i].buffer);
+        free(to_sort);
+    }
 
     return 0;
 }

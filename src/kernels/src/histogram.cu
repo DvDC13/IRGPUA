@@ -13,24 +13,24 @@ __global__ void compute_histogram1(int* buffer, int* histogram, int size)
 
 ///////////////////////// histogram 2 ///////////////////////////
 
-__global__ void compute_histogram2(int* buffer, int* histogram, int size)
+__global__ void compute_histogram2(int* buffer, int* histogram, int bin, int size)
 {
     int gid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (gid < size)
-    {
-        __shared__ int shared_histogram[256];
 
-        if (threadIdx.x < 256)
-        {
-            shared_histogram[threadIdx.x] = 0;
-        }
+    if (gid >= size) return;
+    
+    __shared__ int shared_histogram[bin];
 
-        __syncthreads();
+    for (int i = threadIdx.x; i < bin; i += blockDim.x)
+        shared_histogram[i] = 0;
 
+    __syncthreads();
+
+    if (gid < bin)
         atomicAdd(&shared_histogram[buffer[gid]], 1);
 
-        __syncthreads();
+    __syncthreads();
 
-        atomicAdd(&histogram[threadIdx.x], shared_histogram[threadIdx.x]);
-    }
+    for (int i = threadIdx.x; i < bin; i += blockDim.x)
+        atomicAdd(&histogram[i], shared_histogram[i]);
 }

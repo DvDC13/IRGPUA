@@ -18,7 +18,8 @@ struct Predicate
 
 __device__ __constant__ int map_thrust[4] = {1, -5, 3, -8};
 
-struct ApplyMapFunctor {
+struct ApplyMapFunctor
+{
 
     __host__ __device__
     void operator()(int &x) {
@@ -27,7 +28,8 @@ struct ApplyMapFunctor {
     }
 };
 
-struct NonZeroPredicate {
+struct NonZeroPredicate
+{
     __host__ __device__ bool operator()(int x) {
         return x != 0;
     }
@@ -46,6 +48,14 @@ struct ApplyMapTransformation
     {
         float result = ((histogram[x] - first_non_zero) / (float)(size - first_non_zero)) * 255.0f;
         return std::roundf(result);
+    }
+};
+
+struct CompareToSort
+{
+    __host__ __device__ bool operator()(const Image::ToSort& a, const Image::ToSort& b)
+    {
+        return a.total < b.total;
     }
 };
 
@@ -150,16 +160,14 @@ int main_thrust([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipelin
     // TODO OPTIONAL : for you GPU version you can store it the way you want
     // But just like the CPU version, moving the actual images while sorting will be too slow
     using ToSort = Image::ToSort;
-    std::vector<ToSort> to_sort(nb_images);
-    std::generate(to_sort.begin(), to_sort.end(), [n = 0, images] () mutable
-    {
+    thrust::host_vector<ToSort> to_sort(nb_images);
+    int n = 0;
+    thrust::generate(to_sort.begin(), to_sort.end(), [&n, &images]() {
         return images[n++].to_sort;
     });
 
     // TODO OPTIONAL : make it GPU compatible (aka faster)
-    std::sort(to_sort.begin(), to_sort.end(), [](ToSort a, ToSort b) {
-        return a.total < b.total;
-    });
+    thrust::sort(to_sort.begin(), to_sort.end(), CompareToSort());
 
     // TODO : Test here that you have the same results
     // You can compare visually and should compare image vectors values and "total" values
