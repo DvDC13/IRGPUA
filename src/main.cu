@@ -20,11 +20,11 @@ void compare_versions(Pipeline& pipeline_cpu, Pipeline& pipeline_gpu)
         auto& cpu_images = pipeline_cpu.images;
         auto& gpu_images = pipeline_gpu.images;
 
-        if (cpu_images[i].size() != gpu_images[i].size())
+        if (cpu_images[i].buffer.size() != gpu_images[i].buffer.size())
         {
             std::cout << "Index: " << i << std::endl;
-            std::cout << "Buffer size CPU: " << cpu_images[i].size() << std::endl;
-            std::cout << "Buffer size GPU: " << gpu_images[i].size() << std::endl;
+            std::cout << "Buffer size CPU: " << cpu_images[i].buffer.size() << std::endl;
+            std::cout << "Buffer size GPU: " << gpu_images[i].buffer.size() << std::endl;
             std::cout << "Error: images are not equal" << std::endl;
             return;
         }

@@ -59,7 +59,7 @@ struct CompareToSort
     }
 };
 
-void fix_image_thrust(thrust::device_vector<int>& d_image, const int image_size, const int buffer_size)
+void fix_image_thrust(thrust::device_vector<int>& d_image, const int image_size)
 {    
     // #1 Compact
 
@@ -123,17 +123,17 @@ int main_thrust([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipelin
         // There are still ways to speeds this process of course (wait for last class)
         images[i] = pipeline.get_image(i);
         const int image_size = (int)images[i].width * (int)images[i].height;
-        const int buffer_size = images[i].size();
+        const int buffer_size = images[i].buffer.size();
 
         DeviceArray d_image(buffer_size, 0);
 
         // use thrust to copy the image
         thrust::device_vector<int> d_image_thrust(buffer_size, 0);
-        thrust::copy(images[i].buffer, images[i].buffer + buffer_size, d_image_thrust.begin());
+        thrust::copy(images[i].buffer.begin(), images[i].buffer.begin() + buffer_size, d_image_thrust.begin());
 
-        fix_image_thrust(d_image_thrust, image_size, buffer_size);
+        fix_image_thrust(d_image_thrust, image_size);
 
-        thrust::copy(d_image_thrust.begin(), d_image_thrust.end(), images[i].buffer);
+        thrust::copy(d_image_thrust.begin(), d_image_thrust.end(), images[i].buffer.data());
 
         // -- All images are now fixed : compute stats (total then sort)
 
@@ -188,7 +188,7 @@ int main_thrust([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipelin
     // Cleaning
     // TODO : Don't forget to update this if you change allocation style
     for (int i = 0; i < nb_images; ++i)
-        free(images[i].buffer);
+        images[i].buffer.clear();
 
     return 0;
 }

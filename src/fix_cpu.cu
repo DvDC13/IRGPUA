@@ -14,10 +14,10 @@ void fix_image_cpu(Image& to_fix)
 
     // Build predicate vector
 
-    std::vector<int> predicate(to_fix.size(), 0);
+    std::vector<int> predicate(to_fix.buffer.size(), 0);
 
     constexpr int garbage_val = -27;
-    for (int i = 0; i < to_fix.size(); ++i)
+    for (int i = 0; i < to_fix.buffer.size(); ++i)
         if (to_fix.buffer[i] != garbage_val)
             predicate[i] = 1;
 
@@ -66,7 +66,7 @@ void fix_image_cpu(Image& to_fix)
 
     // Apply the map transformation of the histogram equalization
 
-    std::transform(to_fix.buffer, to_fix.buffer + image_size, to_fix.buffer,
+    std::transform(to_fix.buffer.data(), to_fix.buffer.data() + image_size, to_fix.buffer.data(),
         [image_size, cdf_min, &histo](int pixel)
             {
                 return std::roundf(((histo[pixel] - cdf_min) / static_cast<float>(image_size - cdf_min)) * 255.0f);
@@ -114,7 +114,7 @@ int main_cpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         auto& image = images[i];
         const int image_size = image.width * image.height;
 
-        image.to_sort.total = std::reduce(image.buffer, image.buffer + image_size, 0);
+        image.to_sort.total = std::reduce(image.buffer.begin(), image.buffer.begin() + image_size, 0);
     }
 
     // - All totals are known, sort images accordingly (OPTIONAL)
@@ -154,7 +154,7 @@ int main_cpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     // Cleaning
     // TODO : Don't forget to update this if you change allocation style
     for (int i = 0; i < nb_images; ++i)
-        free(images[i].buffer);
+        images[i].buffer.clear();
 
     return 0;   
 }

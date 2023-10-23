@@ -16,6 +16,6 @@
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
 
-void fix_image_thrust(thrust::device_vector<int>& d_image, const int image_size, const int buffer_size);
+void fix_image_thrust(thrust::device_vector<int>& d_image, const int image_size);
 
 int main_thrust([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& pipeline);

@@ -19,7 +19,7 @@ __global__ void compute_histogram2(int* buffer, int* histogram, int bin, int siz
 
     if (gid >= size) return;
     
-    __shared__ int shared_histogram[bin];
+    extern __shared__ int shared_histogram[];
 
     for (int i = threadIdx.x; i < bin; i += blockDim.x)
         shared_histogram[i] = 0;

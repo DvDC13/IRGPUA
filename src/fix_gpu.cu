@@ -118,14 +118,14 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         // There are still ways to speeds this process of course (wait for last class)
         images[i] = pipeline.get_image(i);
         const int image_size = (int)images[i].width * (int)images[i].height;
-        const int buffer_size = images[i].size();
+        const int buffer_size = images[i].buffer.size();
 
         DeviceArray d_image(buffer_size, 0);
-        d_image.copyFromHost(images[i].buffer, buffer_size);
+        d_image.copyFromHost(images[i].buffer.data(), buffer_size);
 
         fix_image_gpu(d_image, image_size, buffer_size);
 
-        d_image.copyToHost(images[i].buffer, buffer_size);
+        d_image.copyToHost(images[i].buffer.data(), buffer_size);
 
         // -- All images are now fixed : compute stats (total then sort)
 
@@ -147,13 +147,13 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     // TODO OPTIONAL : for you GPU version you can store it the way you want
     // But just like the CPU version, moving the actual images while sorting will be too slow
     using ToSort = Image::ToSort;
-    int* to_sort = (int*)malloc(nb_images * sizeof(ToSort));
+    std::vector<int> to_sort(nb_images);
 
     for (int i = 0; i < nb_images; ++i)
         to_sort[i] = images[i].to_sort.total;
 
     // TODO OPTIONAL : make it GPU compatible (aka faster)
-    radix_sort_gpu(to_sort, nb_images);
+    radix_sort_gpu(to_sort.data(), nb_images);
 
     // TODO : Test here that you have the same results
     // You can compare visually and should compare image vectors values and "total" values
@@ -174,10 +174,9 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     // Cleaning
     // TODO : Don't forget to update this if you change allocation style
     for (int i = 0; i < nb_images; ++i)
-    {
-        free(images[i].buffer);
-        free(to_sort);
-    }
+        images[i].buffer.clear();
+
+    to_sort.clear();
 
     return 0;
 }
