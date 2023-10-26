@@ -190,5 +190,5 @@ int main_thrust([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipelin
     for (int i = 0; i < nb_images; ++i)
         images[i].buffer.clear();
 
-    return 0;
+    return EXIT_SUCCESS;
 }

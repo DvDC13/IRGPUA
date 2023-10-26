@@ -83,21 +83,14 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
         __syncthreads();
 
         // Perform scan on the mask
-        int tmp = 0;
-        for (int d = 0; d < (int)log2f(blockDim.x); d++)
+        for (int s = 1; s <= blockDim.x / 2; s <<= 1)
         {
-            int before = tid - (1 << d);
-
-            if (before >= 0)
-                tmp = s_mask[before] + s_mask[tid];
-            else
-                tmp = s_mask[tid];
-            __syncthreads();
-            s_mask[tid] = tmp;
-            __syncthreads();
+            if (tid > s)
+                s_mask[tid] += s_mask[tid - s];
+            __syncthreads();    
         }
 
-        __syncthreads();
+        //__syncthreads();
 
         // Shift to the right to produce an exclusive prefix sum
         s_mask[tid + 1] = s_mask[tid];
@@ -123,31 +116,19 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
     }
 
     // Perform scan on the d_mask_scan
-    int tmp = 0;
-    for (int d = 0; d < (int)log2f(blockDim.x); d++)
+    for (int s = 1; s <= blockDim.x / 2; s <<= 1)
     {
-        int before = tid - (1 << d);
-
-        if (before >= 0)
-            tmp = s_mask_scan[before] + s_mask_scan[tid];
-        else
-            tmp = s_mask_scan[tid];
-        __syncthreads();
-        s_mask_scan[tid] = tmp;
-        __syncthreads();
+        if (tid > s)
+            s_mask_scan[tid] += s_mask_scan[tid - s];
+        __syncthreads();    
     }
-
-    __syncthreads();
 
     // Shift to the right to produce an exclusive prefix sum
     s_mask_scan[tid + 1] = s_mask_scan[tid];
 
-    if (tid == 0)
-    {
-        s_mask_scan[0] = 0;
-    }
-
     __syncthreads();
+
+    if (tid == 0) s_mask_scan[0] = 0;
 
     if (gid < size)
     {
@@ -223,15 +204,12 @@ void radix_sort_gpu(int* arr, int size)
 
     int* d_global_counter;
     cudaMalloc((void**)&d_global_counter, sizeof(int));
+
+    int* d_blocks_aggregate;
+    cudaMalloc((void**)&d_blocks_aggregate, grid_size * sizeof(int));
     
-    int* d_block_states;
-    cudaMalloc((void**)&d_block_states, grid_size * sizeof(int));
-
-    int* d_blocksP;
-    cudaMalloc((void**)&d_blocksP, grid_size * sizeof(int));
-
-    int* d_blocksA;
-    cudaMalloc((void**)&d_blocksA, grid_size * sizeof(int));
+    cuda::std::atomic<char>* d_block_states;
+    cudaMalloc((void**)&d_block_states, grid_size * sizeof(cuda::std::atomic<int>));
 
     int shared_mem_size = block_size * sizeof(int);
 
@@ -250,20 +228,23 @@ void radix_sort_gpu(int* arr, int size)
             break;
         }
 
+        // Perform radix sort
         radix_sort<<<grid_size, block_size, shared_memory_size>>>(d_arr_in, d_blocks_sum, d_prefix_sum, bit, d_arr_out, size);
         cudaDeviceSynchronize();
 
         cudaMemset(d_global_counter, 0, sizeof(int));
-        cudaMemset(d_block_states, 0, grid_size * sizeof(int));
-        cudaMemset(d_blocksP, 0, grid_size * sizeof(int));
-        cudaMemset(d_blocksA, 0, grid_size * sizeof(int));
+        cudaMemset(d_block_states, 'X', grid_size * sizeof(char));
+        cudaMemset(d_blocks_aggregate, 0, grid_size * sizeof(int));
 
-        decoupled_lookback_scan<<<grid_size, block_size, sizeof(int)>>>(d_blocks_sum, d_global_counter, d_blocksA, d_blocksP, d_block_states, 4 * grid_size);
+        // Perform scan on the blocks sum
+        decoupled_look_back_optimized<<<grid_size, block_size, sizeof(int)>>>(d_blocks_sum, 4 * grid_size, d_blocks_aggregate, d_global_counter, d_block_states);
         cudaDeviceSynchronize();
 
+        // Shift for an exclusive prefix sum
         shift_buffer<<<grid_size, block_size>>>(d_blocks_sum, d_scan_blocks_sum, 4 * grid_size);
         cudaDeviceSynchronize();
         
+        // Compute the new position of each element
         compute_new_position<<<grid_size, block_size>>>(d_arr_out, d_arr_in, d_prefix_sum, d_scan_blocks_sum, bit, size);
         cudaDeviceSynchronize();
     }
@@ -279,6 +260,4 @@ void radix_sort_gpu(int* arr, int size)
     cudaFree(d_arr_out);
     cudaFree(d_global_counter);
     cudaFree(d_block_states);
-    cudaFree(d_blocksP);
-    cudaFree(d_blocksA);
 }

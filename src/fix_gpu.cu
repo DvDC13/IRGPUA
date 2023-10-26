@@ -16,12 +16,14 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     cudaXDeviceSynchronize();
 
     // Compute the exclusive sum of the predicate
-    DeviceArray d_blockStates(grid_size, 0);
-    DeviceArray d_blocksP(grid_size, 0);
-    DeviceArray d_blocksA(grid_size, 0);
-    DeviceArray d_globalCounter(1, 0);
+    cuda::std::atomic<char>* d_blockStates = nullptr;
+    cudaXMalloc((void**)&d_blockStates, grid_size * sizeof(cuda::std::atomic<char>));
+    cudaXMemset(d_blockStates, 'X', grid_size * sizeof(cuda::std::atomic<char>));
 
-    decoupled_lookback_scan<<<dimGrid, dimBlock, sizeof(int)>>>(d_predicate.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, buffer_size);
+    DeviceArray d_globalCounter(1, 0);
+    DeviceArray d_blocksAggregate(grid_size, 0);
+
+    decoupled_look_back_optimized<<<grid_size, block_size, sizeof(int)>>>(d_predicate.data_, buffer_size, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates);
     cudaXDeviceSynchronize();
     cudaCheckError();
 
@@ -36,23 +38,23 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     cudaXDeviceSynchronize();
 
     // #2 Apply map to fix pixels
-    apply_map1<<<dimGrid, dimBlock>>>(d_image.data_, image_size);
+    apply_map4<<<dimGrid, dimBlock>>>(d_image.data_, image_size);
     cudaXDeviceSynchronize();
 
     // #3 Histogram equalization
     // Histogram
     DeviceArray d_histo(256, 0);
 
-    compute_histogram1<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, image_size);
+    compute_histogram2<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, image_size);
     cudaXDeviceSynchronize();
 
     // Compute the inclusive sum scan of the histogram
-    d_blockStates.setTo(grid_size, 0);
-    d_blocksP.setTo(grid_size, 0);
-    d_blocksA.setTo(grid_size, 0);
-    d_globalCounter.setTo(1, 0);
 
-    decoupled_lookback_scan<<<1, 256, sizeof(int)>>>(d_histo.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, 256);
+    cudaXMemset(d_blockStates, 'X', grid_size * sizeof(cuda::std::atomic<char>));
+    d_globalCounter.setTo(1, 0);
+    d_blocksAggregate.setTo(grid_size, 0);
+
+    decoupled_look_back_optimized<<<1, 256, sizeof(int)>>>(d_histo.data_, 256, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates);
     cudaXDeviceSynchronize();
 
     // Find the first non-zero value in the cumulative histogram
@@ -61,12 +63,11 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     build_predicate_zeros1<<<1, 256>>>(d_histo.data_, d_predicate_zeros.data_, 256);
     cudaXDeviceSynchronize();
 
-    d_blockStates.setTo(grid_size, 0);
-    d_blocksP.setTo(grid_size, 0);
-    d_blocksA.setTo(grid_size, 0);
+    cudaXMemset(d_blockStates, 'X', grid_size * sizeof(cuda::std::atomic<char>));
     d_globalCounter.setTo(1, 0);
+    d_blocksAggregate.setTo(grid_size, 0);
 
-    decoupled_lookback_scan<<<1, 256, sizeof(int)>>>(d_predicate_zeros.data_, d_globalCounter.data_, d_blocksA.data_, d_blocksP.data_, d_blockStates.data_, 256);
+    decoupled_look_back_optimized<<<1, 256, sizeof(int)>>>(d_predicate_zeros.data_, 256, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates);
     cudaXDeviceSynchronize();
 
     DeviceArray d_firstNonZero(1, 0);
@@ -178,5 +179,5 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
 
     to_sort.clear();
 
-    return 0;
+    return EXIT_SUCCESS;
 }
