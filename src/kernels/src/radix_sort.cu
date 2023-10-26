@@ -90,7 +90,7 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
             __syncthreads();    
         }
 
-        //__syncthreads();
+        __syncthreads();
 
         // Shift to the right to produce an exclusive prefix sum
         s_mask[tid + 1] = s_mask[tid];
@@ -113,6 +113,8 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
         {
             s_local_prefix_sum[tid] = s_mask[tid];
         }
+
+        __syncthreads();
     }
 
     // Perform scan on the d_mask_scan
@@ -123,12 +125,16 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
         __syncthreads();    
     }
 
+    __syncthreads();
+
     // Shift to the right to produce an exclusive prefix sum
     s_mask_scan[tid + 1] = s_mask_scan[tid];
 
     __syncthreads();
 
     if (tid == 0) s_mask_scan[0] = 0;
+
+    __syncthreads();
 
     if (gid < size)
     {
@@ -172,56 +178,40 @@ void radix_sort_gpu(int* arr, int size)
         block_size + (block_size + 1) + block_size + 8
     );
 
-    int* d_arr_in;
-    cudaMalloc((void**)&d_arr_in, size * sizeof(int));
-    cudaMemset(d_arr_in, 0, size * sizeof(int));
-    cudaMemcpy(d_arr_in, arr, size * sizeof(int), cudaMemcpyHostToDevice);
+    DeviceArray d_arr_in(size, 0);
+    d_arr_in.copyFromHost(arr, size);
 
-    int* d_arr_out;
-    cudaMalloc((void**)&d_arr_out, size * sizeof(int));
-    cudaMemset(d_arr_out, 0, size * sizeof(int));
+    DeviceArray d_arr_out(size, 0);
 
-    int* d_reduce;
-    cudaMalloc((void**)&d_reduce, size * sizeof(int));
-    cudaMemset(d_reduce, 0, size * sizeof(int));
-    cudaMemcpy(d_reduce, arr, size * sizeof(int), cudaMemcpyHostToDevice);
+    DeviceArray d_reduce(size, 0);
+    d_reduce.copyFromHost(arr, size);
 
-    int* d_total;
-    cudaMalloc((void**)&d_total, sizeof(int));
-    cudaMemset(d_total, 0, sizeof(int));
+    DeviceArray d_total(1, 0);
 
-    int* d_blocks_sum;
-    cudaMalloc((void**)&d_blocks_sum, 4 * grid_size * sizeof(int));
-    cudaMemset(d_blocks_sum, 0, 4 * grid_size * sizeof(int));
+    DeviceArray d_blocks_sum(4 * grid_size, 0);
 
-    int* d_prefix_sum;
-    cudaMalloc((void**)&d_prefix_sum, size * sizeof(int));
-    cudaMemset(d_prefix_sum, 0, size * sizeof(int));
+    DeviceArray d_prefix_sum(size, 0);
 
-    int* d_scan_blocks_sum;
-    cudaMalloc((void**)&d_scan_blocks_sum, size * sizeof(int));
-    cudaMemset(d_scan_blocks_sum, 0, size * sizeof(int));
+    DeviceArray d_scan_blocks_sum(size, 0);
 
-    int* d_global_counter;
-    cudaMalloc((void**)&d_global_counter, sizeof(int));
+    DeviceArray d_global_counter(1, 0);
 
-    int* d_blocks_aggregate;
-    cudaMalloc((void**)&d_blocks_aggregate, grid_size * sizeof(int));
+    DeviceArray d_blocks_aggregate(grid_size, 0);
     
     cuda::std::atomic<char>* d_block_states;
-    cudaMalloc((void**)&d_block_states, grid_size * sizeof(cuda::std::atomic<int>));
+    cudaXMalloc((void**)&d_block_states, grid_size * sizeof(cuda::std::atomic<int>));
 
     int shared_mem_size = block_size * sizeof(int);
 
     for (unsigned int bit = 0; bit <= 30; bit += 2)
     {
         // Perform order checking on the current stage
-        order_checking<<<grid_size, block_size, shared_mem_size>>>(d_reduce, d_total, size);
+        order_checking<<<grid_size, block_size, shared_mem_size>>>(d_reduce.data_, d_total.data_, size);
         cudaDeviceSynchronize();
 
         // Check if the array is already sorted
         int total;
-        cudaMemcpy(&total, d_total, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&total, d_total.data_, sizeof(int), cudaMemcpyDeviceToHost);
         if (total == 0)
         {
             std::cout << "Array is already sorted" << std::endl;
@@ -229,35 +219,27 @@ void radix_sort_gpu(int* arr, int size)
         }
 
         // Perform radix sort
-        radix_sort<<<grid_size, block_size, shared_memory_size>>>(d_arr_in, d_blocks_sum, d_prefix_sum, bit, d_arr_out, size);
+        radix_sort<<<grid_size, block_size, shared_memory_size>>>(d_arr_in.data_, d_blocks_sum.data_, d_prefix_sum.data_, bit, d_arr_out.data_, size);
         cudaDeviceSynchronize();
 
-        cudaMemset(d_global_counter, 0, sizeof(int));
-        cudaMemset(d_block_states, 'X', grid_size * sizeof(char));
-        cudaMemset(d_blocks_aggregate, 0, grid_size * sizeof(int));
+        d_global_counter.setTo(1, 0);
+        d_blocks_aggregate.setTo(grid_size, 0);
+        cudaXMemset(d_block_states, 'X', grid_size * sizeof(char));
 
         // Perform scan on the blocks sum
-        decoupled_look_back_optimized<<<grid_size, block_size, sizeof(int)>>>(d_blocks_sum, 4 * grid_size, d_blocks_aggregate, d_global_counter, d_block_states);
+        decoupled_look_back_optimized<<<grid_size, block_size, sizeof(int)>>>(d_blocks_sum.data_, 4 * grid_size, d_blocks_aggregate.data_, d_global_counter.data_, d_block_states);
         cudaDeviceSynchronize();
 
         // Shift for an exclusive prefix sum
-        shift_buffer<<<grid_size, block_size>>>(d_blocks_sum, d_scan_blocks_sum, 4 * grid_size);
+        shift_buffer<<<grid_size, block_size>>>(d_blocks_sum.data_, d_scan_blocks_sum.data_, 4 * grid_size);
         cudaDeviceSynchronize();
         
         // Compute the new position of each element
-        compute_new_position<<<grid_size, block_size>>>(d_arr_out, d_arr_in, d_prefix_sum, d_scan_blocks_sum, bit, size);
+        compute_new_position<<<grid_size, block_size>>>(d_arr_out.data_, d_arr_in.data_, d_prefix_sum.data_, d_scan_blocks_sum.data_, bit, size);
         cudaDeviceSynchronize();
     }
 
-    cudaMemcpy(arr, d_arr_in, size * sizeof(int), cudaMemcpyDeviceToHost);
+    d_arr_in.copyToHost(arr, size);
 
-    cudaFree(d_arr_in);
-    cudaFree(d_blocks_sum);
-    cudaFree(d_prefix_sum);
-    cudaFree(d_scan_blocks_sum);
-    cudaFree(d_reduce);
-    cudaFree(d_total);
-    cudaFree(d_arr_out);
-    cudaFree(d_global_counter);
-    cudaFree(d_block_states);
+    cudaXFree(d_block_states);
 }

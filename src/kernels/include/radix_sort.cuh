@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <iostream>
 
+#include "deviceArray.cuh"
 #include "scan.cuh"
 #include "shift.cuh"
 

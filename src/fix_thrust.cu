@@ -20,7 +20,6 @@ __device__ __constant__ int map_thrust[4] = {1, -5, 3, -8};
 
 struct ApplyMapFunctor
 {
-
     __host__ __device__
     void operator()(int &x) {
         int gid = threadIdx.x + blockIdx.x * blockDim.x;
