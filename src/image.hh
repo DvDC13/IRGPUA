@@ -7,6 +7,8 @@
 #include <vector>
 #include <sstream>
 
+#include "error.cuh"
+
 struct Image
 {
     Image() = default;
@@ -43,13 +45,16 @@ struct Image
         {
             // TODO : Isn't there a better way to allocate the CPU Memory
             // To speed up the Host-to-Device Transfert ?
+            cudaXMallocHost((void**)&buffer, width * height * sizeof(int));
+            
             infile.seekg(1, infile.cur);
             for (int i = 0; i < width * height; ++i)
             {
                 uint8_t pixel_char;
                 infile >> std::noskipws >> pixel_char;
-                buffer.emplace_back(pixel_char);
+                buffer[i] = pixel_char;
             }
+            actual_size = width * height;
         }
         else if (magic == "P?")
         {
@@ -58,17 +63,34 @@ struct Image
             std::string line;
             std::getline(infile, line);
 
+            int image_size = 0;
+            {
+                std::stringstream lineStream(line);
+                std::string s;
+
+                while(std::getline(lineStream, s, ';'))
+                    ++image_size;
+            }
             // TODO : Isn't there a better way to allocate the CPU Memory
             // To speed up the Host-to-Device Transfert ?
+            cudaXMallocHost((void**)&buffer, image_size * sizeof(int));
 
             std::stringstream lineStream(line);
             std::string s;
 
+            int i = 0;
+
             while(std::getline(lineStream, s, ';'))
-                buffer.emplace_back(std::stoi(s));
+                buffer[i++] = std::stoi(s);
+            actual_size = i;
         }
         else
             throw std::runtime_error("Bad PPM value");
+    }
+
+    int size() const
+    {
+        return actual_size;
     }
 
     void write(const std::string& filepath) const
@@ -91,9 +113,10 @@ struct Image
         }
     }
 
-    std::vector<int> buffer;
+    int* buffer;
     int height = -1;
     int width = -1;
+    int actual_size = -1;
     struct ToSort
     {
         uint64_t total = 0;

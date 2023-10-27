@@ -1,5 +1,9 @@
 #include "radix_sort.cuh"
 
+/* Based on this article
+    https://www.semanticscholar.org/paper/Fast-4-way-parallel-radix-sorting-on-GPUs-Ha-Kr%C3%BCger/eaa887377239049f2f6d55f23830ce5f2bb6f38c
+*/
+
 __global__ void order_checking(int* d_reduce, int* d_total, int size)
 {
     extern __shared__ int s_arr[];
@@ -83,14 +87,22 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
         __syncthreads();
 
         // Perform scan on the mask
-        for (int s = 1; s <= blockDim.x / 2; s <<= 1)
+        int tmp = 0;
+        for (int d = 0; d < (int)log2f(blockDim.x); d++)
         {
-            if (tid > s)
-                s_mask[tid] += s_mask[tid - s];
-            __syncthreads();    
-        }
+            int before = tid - (1 << d);
 
-        __syncthreads();
+            if (before >= 0)
+                tmp = s_mask[before] + s_mask[tid];
+            else
+                tmp = s_mask[tid];
+            
+            __syncthreads();
+
+            s_mask[tid] = tmp;
+
+            __syncthreads();
+        }
 
         // Shift to the right to produce an exclusive prefix sum
         s_mask[tid + 1] = s_mask[tid];
@@ -103,7 +115,6 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
             int total = s_mask[blockDim.x];
             int block_index = gridDim.x * b + blockIdx.x;
             d_blocks_sum[block_index] = total;
-
             s_mask_scan[b] = total;
         }
 
@@ -118,19 +129,25 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
     }
 
     // Perform scan on the d_mask_scan
-    for (int s = 1; s <= blockDim.x / 2; s <<= 1)
+    int tmp = 0;
+    for (int d = 0; d < (int)log2f(blockDim.x); d++)
     {
-        if (tid > s)
-            s_mask_scan[tid] += s_mask_scan[tid - s];
-        __syncthreads();    
-    }
+        int before = tid - (1 << d);
 
-    __syncthreads();
+        if (before >= 0)
+            tmp = s_mask_scan[before] + s_mask_scan[tid];
+        else
+            tmp = s_mask_scan[tid];
+        
+        __syncthreads();
+
+        s_mask_scan[tid] = tmp;
+
+        __syncthreads();
+    }
 
     // Shift to the right to produce an exclusive prefix sum
     s_mask_scan[tid + 1] = s_mask_scan[tid];
-
-    __syncthreads();
 
     if (tid == 0) s_mask_scan[0] = 0;
 

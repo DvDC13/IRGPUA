@@ -58,3 +58,33 @@ inline void cudaXDeviceReset()
 {
     gpu_err_check(cudaDeviceReset());
 }
+
+inline void cudaXMallocHost(void **ptr, size_t size)
+{
+    gpu_err_check(cudaMallocHost(ptr, size));
+}
+
+inline void cudaXFreeHost(void *ptr)
+{
+    gpu_err_check(cudaFreeHost(ptr));
+}
+
+inline void cudaXMemcpyAsync(void *dst, const void *src, size_t size, cudaMemcpyKind kind, cudaStream_t stream)
+{
+    gpu_err_check(cudaMemcpyAsync(dst, src, size, kind, stream));
+}
+
+inline void cudaXStreamCreate(cudaStream_t *stream)
+{
+    gpu_err_check(cudaStreamCreate(stream));
+}
+
+inline void cudaXStreamDestroy(cudaStream_t stream)
+{
+    gpu_err_check(cudaStreamDestroy(stream));
+}
+
+inline void cudaXStreamSynchronize(cudaStream_t stream)
+{
+    gpu_err_check(cudaStreamSynchronize(stream));
+}

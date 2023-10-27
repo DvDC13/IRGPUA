@@ -105,9 +105,15 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
 
     // - One CPU thread is launched for each image
 
+    int nStreams = 5;
+    int streamSize = nb_images / nStreams;
+
+    cudaStream_t streams[nStreams];
+    for (int i = 0; i < nStreams; ++i)
+        cudaXStreamCreate(&streams[i]);
+
     std::cout << "Done, starting compute" << std::endl;
 
-    #pragma omp parallel for
     for (int i = 0; i < nb_images; ++i)
     {
         // TODO : make it GPU compatible (aka faster)
@@ -119,14 +125,14 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
         // There are still ways to speeds this process of course (wait for last class)
         images[i] = pipeline.get_image(i);
         const int image_size = (int)images[i].width * (int)images[i].height;
-        const int buffer_size = images[i].buffer.size();
+        const int buffer_size = images[i].size();
 
         DeviceArray d_image(buffer_size, 0);
-        d_image.copyFromHost(images[i].buffer.data(), buffer_size);
+        d_image.copyFromHost(images[i].buffer, buffer_size);
 
         fix_image_gpu(d_image, image_size, buffer_size);
 
-        d_image.copyToHost(images[i].buffer.data(), buffer_size);
+        d_image.copyToHost(images[i].buffer, buffer_size);
 
         // -- All images are now fixed : compute stats (total then sort)
 
@@ -175,7 +181,7 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     // Cleaning
     // TODO : Don't forget to update this if you change allocation style
     for (int i = 0; i < nb_images; ++i)
-        images[i].buffer.clear();
+        cudaXFreeHost(images[i].buffer);
 
     to_sort.clear();
 

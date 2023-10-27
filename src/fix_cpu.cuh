@@ -2,6 +2,7 @@
 
 #include "image.hh"
 #include "pipeline.hh"
+#include "error.cuh"
 
 void fix_image_cpu(Image& to_fix);
 

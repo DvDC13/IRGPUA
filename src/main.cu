@@ -20,11 +20,11 @@ void compare_versions(Pipeline& pipeline_cpu, Pipeline& pipeline_gpu)
         auto& cpu_images = pipeline_cpu.images;
         auto& gpu_images = pipeline_gpu.images;
 
-        if (cpu_images[i].buffer.size() != gpu_images[i].buffer.size())
+        if (cpu_images[i].size() != gpu_images[i].size())
         {
             std::cout << "Index: " << i << std::endl;
-            std::cout << "Buffer size CPU: " << cpu_images[i].buffer.size() << std::endl;
-            std::cout << "Buffer size GPU: " << gpu_images[i].buffer.size() << std::endl;
+            std::cout << "Buffer size CPU: " << cpu_images[i].size() << std::endl;
+            std::cout << "Buffer size GPU: " << gpu_images[i].size() << std::endl;
             std::cout << "Error: images are not equal" << std::endl;
             return;
         }
@@ -57,6 +57,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     std::vector<std::string> filepaths;
     for (const auto& dir_entry : recursive_directory_iterator("../images"))
         filepaths.emplace_back(dir_entry.path());
+
+    // Init CUDA device
+    cudaSetDevice(0);
 
     // -- Check if there there is need to benchmark
     if (args.benchmark == false)
@@ -119,6 +122,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
         std::cout << "Comparing results CPU & Thrust" << std::endl;
         compare_versions(cpu_pipeline, thrust_pipeline);
     }
+
+    cudaXDeviceReset();
 
     return EXIT_SUCCESS;
 }
