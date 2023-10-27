@@ -15,12 +15,12 @@ __global__ void reduce4(const int* __restrict__ buffer, int* __restrict__ total,
 
 __global__ void reduce5(const int* __restrict__ buffer, int* __restrict__ total, int size);
 
-template <int blockSize>
-__global__ void reduce6(const int* __restrict__ buffer, int* __restrict__ total, int size);
+__global__ void reduce6(const int* __restrict__ buffer, int* __restrict__ total, int blockSize, int size);
 
-template <int blockSize>
-__global__ void reduce7(const int* __restrict__ buffer, int* __restrict__ total, int size);
+__global__ void reduce7(const int* __restrict__ buffer, int* __restrict__ total, int blockSize, int size);
 
 __global__ void reduce8(const int* __restrict__ buffer, int* __restrict__ total, int size);
 
 __global__ void reduce8(const int* __restrict__ buffer, int* __restrict__ total, int size);
+
+__global__ void reduce9(const int* __restrict__ buffer, int* __restrict__ total, int size);

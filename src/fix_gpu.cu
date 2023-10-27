@@ -87,7 +87,7 @@ uint64_t compute_reduce_gpu(DeviceArray &d_buffer, int image_size)
 
     DeviceArray d_total(1, 0);
 
-    kernel_reduce_baseline<<<num_blocks, block_size>>>(d_buffer.data_, d_total.data_, image_size);
+    reduce1<<<num_blocks, block_size, block_size * sizeof(int)>>>(d_buffer.data_, d_total.data_, image_size);
     cudaXDeviceSynchronize();
 
     int total = 0;
@@ -104,13 +104,6 @@ int main_gpu([[maybe_unused]] int argc, [[maybe_unused]] char** argv, Pipeline& 
     std::vector<Image> images(nb_images);
 
     // - One CPU thread is launched for each image
-
-    int nStreams = 5;
-    int streamSize = nb_images / nStreams;
-
-    cudaStream_t streams[nStreams];
-    for (int i = 0; i < nStreams; ++i)
-        cudaXStreamCreate(&streams[i]);
 
     std::cout << "Done, starting compute" << std::endl;
 

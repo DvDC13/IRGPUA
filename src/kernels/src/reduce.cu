@@ -145,8 +145,7 @@ __global__ void reduce5(const int* __restrict__ buffer, int* __restrict__ total,
 
 ///////////////////////// reduce 6 ///////////////////////////
 
-template <int blockSize>
-__device__ void warp_reduce6(int* shared, int gid)
+__device__ void warp_reduce6(int* shared, int gid, int blockSize)
 {
     if (blockSize >= 64) shared[gid] += shared[gid + 32]; __syncwarp();
     if (blockSize >= 32) shared[gid] += shared[gid + 16]; __syncwarp();
@@ -156,8 +155,7 @@ __device__ void warp_reduce6(int* shared, int gid)
     if (blockSize >= 2) shared[gid] += shared[gid + 1]; __syncwarp();
 }
 
-template <int blockSize>
-__global__ void reduce6(const int* __restrict__ buffer, int* __restrict__ total, int size)
+__global__ void reduce6(const int* __restrict__ buffer, int* __restrict__ total, int blockSize, int size)
 {
     extern __shared__ int shared[];
     const int id = threadIdx.x + blockIdx.x * (blockDim.x * 2);
@@ -174,7 +172,7 @@ __global__ void reduce6(const int* __restrict__ buffer, int* __restrict__ total,
     if (blockSize >= 128) { if (threadIdx.x < 64) { shared[threadIdx.x] += shared[threadIdx.x + 64]; } __syncthreads(); }
     
     if (threadIdx.x < 32)
-        warp_reduce6<blockSize, int>(shared, threadIdx.x);
+        warp_reduce6(shared, threadIdx.x, blockSize);
 
     if (threadIdx.x == 0)
         atomicAdd(&total[0], shared[0]);
@@ -182,7 +180,7 @@ __global__ void reduce6(const int* __restrict__ buffer, int* __restrict__ total,
 
 ///////////////////////// reduce 7 ///////////////////////////
 
-template <int blockSize> __device__ void warp_reduce7(int* shared, int gid)
+__device__ void warp_reduce7(int* shared, int gid, int blockSize)
 {
     if (blockSize >= 64) shared[gid] += shared[gid + 32]; __syncwarp();
     if (blockSize >= 32) shared[gid] += shared[gid + 16]; __syncwarp();
@@ -192,8 +190,7 @@ template <int blockSize> __device__ void warp_reduce7(int* shared, int gid)
     if (blockSize >= 2) shared[gid] += shared[gid + 1]; __syncwarp();
 }
 
-template <int blockSize>
-__global__ void reduce7(const int* __restrict__ buffer, int* __restrict__ total, int size)
+__global__ void reduce7(const int* __restrict__ buffer, int* __restrict__ total, int blockSize, int size)
 {
     extern __shared__ int shared[];
     int id = threadIdx.x + blockIdx.x * (blockDim.x * 2);
@@ -217,7 +214,7 @@ __global__ void reduce7(const int* __restrict__ buffer, int* __restrict__ total,
     if (blockSize >= 128) { if (threadIdx.x < 64) { shared[threadIdx.x] += shared[threadIdx.x + 64]; } __syncthreads(); }
     
     if (threadIdx.x < 32)
-        warp_reduce7<blockSize, int>(shared, threadIdx.x);
+        warp_reduce7(shared, threadIdx.x, blockSize);
 
     if (threadIdx.x == 0)
         atomicAdd(&total[0], shared[0]);
