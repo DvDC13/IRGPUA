@@ -131,7 +131,7 @@ __global__ void decoupled_look_back_optimized(int *buffer, int size, int* d_bloc
             if (state == 'A')
             {
                 sum += d_blocks_aggregate[i_block];
-                if (i_block > 0) i_block--;
+                i_block--;
             }
 
             state = states[i_block].load(cuda::std::memory_order_acquire);
