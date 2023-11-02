@@ -3,17 +3,17 @@
 void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_size)
 {    
     int block_size = 1024;
-    int grid_size = (buffer_size + block_size - 1) / block_size;
-
-    dim3 dimBlock(block_size);
-    dim3 dimGrid(grid_size);
+    int grid_size = (buffer_size + block_size - 1) / (block_size * 4);
 
     // #1 Compact
     // Build predicate vector
     DeviceArray d_predicate(buffer_size, 0);
 
-    build_predicate1<<<dimGrid, dimBlock>>>(d_image.data_, d_predicate.data_, buffer_size);
+    build_predicate3<<<grid_size, block_size>>>(d_image.data_, d_predicate.data_, buffer_size);
     cudaXDeviceSynchronize();
+
+    block_size = 1024;
+    grid_size = (buffer_size + block_size - 1) / block_size;
 
     // Compute the exclusive sum of the predicate
     cuda::std::atomic<char>* d_blockStates = nullptr;
@@ -29,23 +29,23 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
 
     DeviceArray predicate_shifted(buffer_size, 0);
 
-    shift_buffer<<<dimGrid, dimBlock>>>(d_predicate.data_, predicate_shifted.data_, buffer_size);
+    shift_buffer<<<grid_size, block_size>>>(d_predicate.data_, predicate_shifted.data_, buffer_size);
     cudaXDeviceSynchronize();
     cudaCheckError();
 
     // Scatter to the corresponding addresses
-    scatter_adresses<<<dimGrid, dimBlock>>>(d_image.data_, predicate_shifted.data_, buffer_size);
+    scatter_adresses<<<grid_size, block_size>>>(d_image.data_, predicate_shifted.data_, buffer_size);
     cudaXDeviceSynchronize();
 
     // #2 Apply map to fix pixels
-    apply_map4<<<dimGrid, dimBlock>>>(d_image.data_, image_size);
+    apply_map4<<<grid_size, block_size>>>(d_image.data_, image_size);
     cudaXDeviceSynchronize();
 
     // #3 Histogram equalization
     // Histogram
     DeviceArray d_histo(256, 0);
 
-    compute_histogram2<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, image_size);
+    compute_histogram2<<<grid_size, block_size>>>(d_image.data_, d_histo.data_, image_size);
     cudaXDeviceSynchronize();
 
     // Compute the inclusive sum scan of the histogram
@@ -76,7 +76,7 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     cudaXDeviceSynchronize();
 
     // Apply the map transformation of the histogram equalization
-    apply_map_transformation1<<<dimGrid, dimBlock>>>(d_image.data_, d_histo.data_, d_firstNonZero.data_, image_size);
+    apply_map_transformation1<<<grid_size, block_size>>>(d_image.data_, d_histo.data_, d_firstNonZero.data_, image_size);
     cudaXDeviceSynchronize();
 }
 

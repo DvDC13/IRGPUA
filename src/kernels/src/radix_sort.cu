@@ -87,20 +87,13 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
         __syncthreads();
 
         // Perform scan on the mask
-        int tmp = 0;
-        for (int d = 0; d < (int)log2f(blockDim.x); d++)
+        for (int s = 1; s < blockDim.x; s *= 2)
         {
-            int before = tid - (1 << d);
-
-            if (before >= 0)
-                tmp = s_mask[before] + s_mask[tid];
-            else
-                tmp = s_mask[tid];
-            
-            __syncthreads();
-
-            s_mask[tid] = tmp;
-
+            int index = (tid + 1) * 2 * s - 1;
+            if (index < blockDim.x)
+            {
+                s_mask[index] += s_mask[index - s];
+            }
             __syncthreads();
         }
 
@@ -129,20 +122,13 @@ __global__ void radix_sort(int* d_arr_in, int* d_blocks_sum, int* d_prefix_sum, 
     }
 
     // Perform scan on the d_mask_scan
-    int tmp = 0;
-    for (int d = 0; d < (int)log2f(blockDim.x); d++)
+    for (int s = 1; s < blockDim.x; s *= 2)
     {
-        int before = tid - (1 << d);
-
-        if (before >= 0)
-            tmp = s_mask_scan[before] + s_mask_scan[tid];
-        else
-            tmp = s_mask_scan[tid];
-        
-        __syncthreads();
-
-        s_mask_scan[tid] = tmp;
-
+        int index = (tid + 1) * 2 * s - 1;
+        if (index < blockDim.x)
+        {
+            s_mask_scan[index] += s_mask_scan[index - s];
+        }
         __syncthreads();
     }
 

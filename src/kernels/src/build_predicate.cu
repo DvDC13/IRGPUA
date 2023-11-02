@@ -23,6 +23,20 @@ __global__ void build_predicate2(const int* __restrict__ buffer, int* __restrict
     }
 }
 
+///////////////////////// build_predicate 3 ///////////////////////////
+
+__global__ void build_predicate3(const int* __restrict__ buffer, int* __restrict__ result, int size)
+{
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = blockDim.x * gridDim.x;
+
+    while (tid < size)
+    {
+        result[tid] = (buffer[tid] != -27) ? 1 : 0;
+        tid += stride;
+    }
+}
+
 ///////////////////////// build_predicate_zeros 1 ///////////////////////////
 
 __global__ void build_predicate_zeros1(const int* __restrict__ buffer, int* __restrict__ result, int size)
