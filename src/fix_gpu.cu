@@ -23,7 +23,7 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     DeviceArray d_globalCounter(1, 0);
     DeviceArray d_blocksAggregate(grid_size, 0);
 
-    decoupled_look_back_optimized<<<grid_size, block_size, sizeof(int)>>>(d_predicate.data_, buffer_size, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates);
+    decoupled_look_back<<<grid_size, block_size, sizeof(int)>>>(d_predicate.data_, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates, buffer_size);
     cudaXDeviceSynchronize();
     cudaCheckError();
 
@@ -54,7 +54,7 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     d_globalCounter.setTo(1, 0);
     d_blocksAggregate.setTo(grid_size, 0);
 
-    decoupled_look_back_optimized<<<1, 256, sizeof(int)>>>(d_histo.data_, 256, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates);
+    decoupled_look_back<<<1, 256, sizeof(int)>>>(d_histo.data_, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates, 256);
     cudaXDeviceSynchronize();
 
     // Find the first non-zero value in the cumulative histogram
@@ -67,7 +67,7 @@ void fix_image_gpu(DeviceArray& d_image, const int image_size, const int buffer_
     d_globalCounter.setTo(1, 0);
     d_blocksAggregate.setTo(grid_size, 0);
 
-    decoupled_look_back_optimized<<<1, 256, sizeof(int)>>>(d_predicate_zeros.data_, 256, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates);
+    decoupled_look_back<<<1, 256, sizeof(int)>>>(d_predicate_zeros.data_, d_blocksAggregate.data_, d_globalCounter.data_, d_blockStates, 256);
     cudaXDeviceSynchronize();
 
     DeviceArray d_firstNonZero(1, 0);

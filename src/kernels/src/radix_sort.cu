@@ -230,7 +230,7 @@ void radix_sort_gpu(int* arr, int size)
         cudaXMemset(d_block_states, 'X', grid_size * sizeof(char));
 
         // Perform scan on the blocks sum
-        decoupled_look_back_optimized<<<grid_size, block_size, sizeof(int)>>>(d_blocks_sum.data_, 4 * grid_size, d_blocks_aggregate.data_, d_global_counter.data_, d_block_states);
+        decoupled_look_back<<<grid_size, block_size, sizeof(int)>>>(d_blocks_sum.data_, d_blocks_aggregate.data_, d_global_counter.data_, d_block_states, 4 * grid_size);
         cudaDeviceSynchronize();
 
         // Shift for an exclusive prefix sum
