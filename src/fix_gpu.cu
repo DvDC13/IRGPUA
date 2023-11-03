@@ -87,7 +87,7 @@ uint64_t compute_reduce_gpu(DeviceArray &d_buffer, int image_size)
 
     DeviceArray d_total(1, 0);
 
-    reduce1<<<num_blocks, block_size, block_size * sizeof(int)>>>(d_buffer.data_, d_total.data_, image_size);
+    reduce3<<<num_blocks, block_size, block_size * sizeof(int)>>>(d_buffer.data_, d_total.data_, image_size);
     cudaXDeviceSynchronize();
 
     int total = 0;

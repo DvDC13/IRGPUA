@@ -22,7 +22,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 set(CMAKE_CUDA_FLAGS "-Xcompiler -fopenmp --extended-lambda --generate-line-info --expt-relaxed-constexpr ${CMAKE_CUDA_FLAGS}")
-set(CMAKE_CUDA_FLAGS "--ptxas-options=-v --generate-line-info")
+#set(CMAKE_CUDA_FLAGS "--ptxas-options=-v --generate-line-info")
 
 add_executable(main src/main.cu 
                     src/fix_cpu.cu 
