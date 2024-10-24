@@ -1,9 +1,13 @@
 # Run
 
 > mkdir build
+
 > cd build
+
 > cmake ..
+
 > make -j
+
 > ./main --benchmark
 
 # Benchmark
